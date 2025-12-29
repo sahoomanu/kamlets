@@ -1,0 +1,100 @@
+apiVersion: camel.apache.org/v1alpha1
+kind: Kamelet
+metadata:
+  name: erpnext-customer-source
+  annotations:
+    camel.apache.org/kamelet.icon: "data:image/svg+xml;base64,"
+  labels:
+    camel.apache.org/kamelet.type: "source"
+spec:
+  definition:
+    title: "ERPNext Customer Source"
+    description: |
+      Poll Customer records from an ERPNext site using the REST API. The Kamelet
+      builds an authorized request with the configured API key/secret and emits
+      the JSON payload so it can be transformed or routed into other Kamelets.
+    required:
+      - baseUrl
+      - apiKey
+      - apiSecret
+    properties:
+      baseUrl:
+        title: "ERPNext Base URL"
+        description: "Base URL of the ERPNext instance including protocol (for example, https://example.erpnext.com)."
+        type: string
+      apiKey:
+        title: "API Key"
+        description: "ERPNext API key."
+        type: string
+        x-descriptors:
+          - urn:alm:descriptor:com.tectonic.ui:password
+      apiSecret:
+        title: "API Secret"
+        description: "ERPNext API secret that pairs with the API key."
+        type: string
+        x-descriptors:
+          - urn:alm:descriptor:com.tectonic.ui:password
+      filters:
+        title: "Filters"
+        description: "Optional JSON encoded list of filters passed to the ERPNext REST API."
+        type: string
+        default: ""
+      fields:
+        title: "Fields"
+        description: "Optional comma-separated list of fields to return from the DocType."
+        type: string
+        default: ""
+      pageLength:
+        title: "Page Length"
+        description: "Number of records to fetch per request."
+        type: integer
+        default: 20
+      period:
+        title: "Polling Period"
+        description: "Interval in milliseconds between API calls."
+        type: integer
+        default: 60000
+  dependencies:
+    - "camel:core"
+    - "camel:http"
+    - "camel:jackson"
+    - "camel:kamelet"
+    - "camel:timer"
+  template:
+    from:
+      uri: "timer:erpnext-customer-source"
+      parameters:
+        period: "{{period}}"
+      steps:
+        - setProperty:
+            name: erpnextQuery
+            constant: "limit_page_length={{pageLength}}"
+        - choice:
+            when:
+              - simple: "{{filters}} != ''"
+                steps:
+                  - setProperty:
+                      name: erpnextQuery
+                      simple: "${exchangeProperty.erpnextQuery}&filters={{filters}}"
+        - choice:
+            when:
+              - simple: "{{fields}} != ''"
+                steps:
+                  - setProperty:
+                      name: erpnextQuery
+                      simple: "${exchangeProperty.erpnextQuery}&fields={{fields}}"
+        - setHeader:
+            name: Authorization
+            simple: "token {{apiKey}}:{{apiSecret}}"
+        - setHeader:
+            name: CamelHttpUri
+            constant: "{{baseUrl}}/api/resource/Customer"
+        - setHeader:
+            name: CamelHttpMethod
+            constant: "GET"
+        - setHeader:
+            name: CamelHttpQuery
+            simple: "${exchangeProperty.erpnextQuery}"
+        - toD: "{{baseUrl}}/api/resource/Customer?bridgeEndpoint=true"
+        - unmarshal:
+            json: {}
