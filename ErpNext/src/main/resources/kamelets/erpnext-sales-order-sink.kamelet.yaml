@@ -1,0 +1,86 @@
+apiVersion: camel.apache.org/v1alpha1
+kind: Kamelet
+metadata:
+  name: erpnext-sales-order-sink
+  annotations:
+    camel.apache.org/kamelet.icon: "data:image/svg+xml;base64,"
+  labels:
+    camel.apache.org/kamelet.type: "sink"
+spec:
+  definition:
+    title: "ERPNext Sales Order Sink"
+    description: |
+      Send payloads to the ERPNext Sales Order DocType using the REST API. The
+      connector can create new sales orders or update existing ones and can be
+      composed with other Kamelets to push prepared data into ERPNext.
+    required:
+      - baseUrl
+      - apiKey
+      - apiSecret
+    properties:
+      baseUrl:
+        title: "ERPNext Base URL"
+        description: "Base URL of the ERPNext instance including protocol (for example, https://example.erpnext.com)."
+        type: string
+      apiKey:
+        title: "API Key"
+        description: "ERPNext API key."
+        type: string
+        x-descriptors:
+          - urn:alm:descriptor:com.tectonic.ui:password
+      apiSecret:
+        title: "API Secret"
+        description: "ERPNext API secret that pairs with the API key."
+        type: string
+        x-descriptors:
+          - urn:alm:descriptor:com.tectonic.ui:password
+      operation:
+        title: "Operation"
+        description: "Whether to create a new sales order or update an existing one."
+        type: string
+        default: "create"
+        enum:
+          - "create"
+          - "update"
+      resourceId:
+        title: "Sales Order ID"
+        description: "Target ERPNext Sales Order name used when the operation is update."
+        type: string
+        default: ""
+  dependencies:
+    - "camel:core"
+    - "camel:http"
+    - "camel:jackson"
+    - "camel:kamelet"
+  template:
+    from:
+      uri: "kamelet:source"
+      steps:
+        - marshal:
+            json: {}
+        - setProperty:
+            name: erpnextMethod
+            constant: "POST"
+        - setProperty:
+            name: erpnextResourcePath
+            constant: ""
+        - choice:
+            when:
+              - simple: "{{operation}} == 'update'"
+                steps:
+                  - setProperty:
+                      name: erpnextMethod
+                      constant: "PUT"
+                  - setProperty:
+                      name: erpnextResourcePath
+                      simple: "/{{resourceId}}"
+        - setHeader:
+            name: Authorization
+            simple: "token {{apiKey}}:{{apiSecret}}"
+        - setHeader:
+            name: Content-Type
+            constant: "application/json"
+        - setHeader:
+            name: CamelHttpMethod
+            simple: "${exchangeProperty.erpnextMethod}"
+        - toD: "{{baseUrl}}/api/resource/Sales Order${exchangeProperty.erpnextResourcePath}?bridgeEndpoint=true"
