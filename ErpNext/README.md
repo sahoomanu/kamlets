@@ -1,21 +1,15 @@
 # ERPNext Kamelet Connectors
 
-This module provides entity-focused Kamelets that can be composed with other
-Kamelet connectors to integrate with ERPNext using its REST API. Each connector
-is preconfigured for a popular ERPNext DocType so you can avoid passing generic
-paths while keeping a consistent authentication model (`token <apiKey>:<apiSecret>`).
+This module provides two modular Kamelets that can be composed with other Kamlet connectors to integrate with ERPNext using its REST API:
 
-## Available connectors
+- **`erpnext-source`** polls a DocType at a configurable interval and emits the JSON response.
+- **`erpnext-sink`** pushes data into ERPNext by creating or updating a DocType record.
 
-| Kamelet | Direction | Purpose | Key properties |
-| --- | --- | --- | --- |
-| `erpnext-customer-source` | Source | Poll customers on a schedule | `baseUrl`, `apiKey`, `apiSecret`, optional `filters`, `fields`, `pageLength`, `period` |
-| `erpnext-customer-sink` | Sink | Create or update customers | `baseUrl`, `apiKey`, `apiSecret`, `operation` (`create`/`update`), optional `resourceId` for updates |
-| `erpnext-item-source` | Source | Poll items on a schedule | `baseUrl`, `apiKey`, `apiSecret`, optional `filters`, `fields`, `pageLength`, `period` |
-| `erpnext-item-sink` | Sink | Create or update items | `baseUrl`, `apiKey`, `apiSecret`, `operation` (`create`/`update`), optional `resourceId` for updates |
-| `erpnext-sales-order-source` | Source | Poll sales orders on a schedule | `baseUrl`, `apiKey`, `apiSecret`, optional `filters`, `fields`, `pageLength`, `period` |
-| `erpnext-sales-order-sink` | Sink | Create or update sales orders | `baseUrl`, `apiKey`, `apiSecret`, `operation` (`create`/`update`), optional `resourceId` for updates |
+## Configuration Overview
 
-All connectors use the same REST authentication headers but fix the ERPNext
-DocType endpoint to the relevant entity so they can be composed with other
-Kamelets without repeatedly configuring resource paths.
+| Kamelet | Key properties | Notes |
+| --- | --- | --- |
+| `erpnext-source` | `baseUrl`, `apiKey`, `apiSecret`, `docType`, `period`, optional `filters`, `fields`, `pageLength` | Builds an authorized GET request and unmarshals the ERPNext JSON payload. |
+| `erpnext-sink` | `baseUrl`, `apiKey`, `apiSecret`, `docType`, `operation` (`create`/`update`), optional `resourceId` for updates | Marshals messages to JSON and issues a POST or PUT to ERPNext. |
+
+Both Kamelets set the `Authorization` header using the ERPNext `token <apiKey>:<apiSecret>` pattern so they can be freely combined with transformation or routing Kamelets in a pipeline.
